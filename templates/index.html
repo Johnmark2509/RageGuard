@@ -1,54 +1,90 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8">
-  <title>Rage Guard</title>
+    <meta charset="UTF-8">
+    <title>Rage Guard</title>
 </head>
 <body>
+    <h1>Rage Guard</h1>
 
-<h1>Rage Guard Live</h1>
+    <video id="video" width="640" height="480" autoplay muted></video>
+    <p id="emotion">Detecting...</p>
 
-<video id="video" width="640" height="480" autoplay muted></video>
-<p id="emotion">Emotion: Loading...</p>
+    <script>
+        const video = document.getElementById('video');
+        const emotionText = document.getElementById('emotion');
 
-<script>
-// Access webcam
-const video = document.getElementById('video');
+        async function startCamera() {
+            const stream = await navigator.mediaDevices.getUserMedia({ video: true, audio: true });
+            video.srcObject = stream;
+            startCaptureLoop();
+            startMicLoop();
+        }
 
-navigator.mediaDevices.getUserMedia({ video: true })
-  .then(stream => {
-    video.srcObject = stream;
-  })
-  .catch(err => {
-    console.error("Error accessing webcam:", err);
-  });
+        async function startCaptureLoop() {
+            const canvas = document.createElement('canvas');
+            const ctx = canvas.getContext('2d');
 
-// Send frame to server every 1 second
-setInterval(async () => {
-  const canvas = document.createElement('canvas');
-  canvas.width = video.videoWidth;
-  canvas.height = video.videoHeight;
-  const context = canvas.getContext('2d');
-  context.drawImage(video, 0, 0, canvas.width, canvas.height);
+            setInterval(async () => {
+                canvas.width = video.videoWidth;
+                canvas.height = video.videoHeight;
+                ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
 
-  const dataUrl = canvas.toDataURL('image/jpeg');
-  const blob = await (await fetch(dataUrl)).blob();
+                const blob = await new Promise(resolve => canvas.toBlob(resolve, 'image/jpeg'));
+                const formData = new FormData();
+                formData.append('file', blob, 'frame.jpg');
 
-  const formData = new FormData();
-  formData.append('file', blob, 'frame.jpg');
+                await fetch('/analyze_frame', {
+                    method: 'POST',
+                    body: formData
+                });
+            }, 2000);
+        }
 
-  try {
-    const response = await fetch('/analyze_frame', {
-      method: 'POST',
-      body: formData
-    });
-    const result = await response.json();
-    document.getElementById('emotion').innerText = `Emotion: ${result.emotion}`;
-  } catch (error) {
-    console.error("Error sending frame:", error);
-  }
-}, 1000);
-</script>
+        let mediaRecorder;
+        let audioChunks = [];
 
+        async function startMicLoop() {
+            const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+            mediaRecorder = new MediaRecorder(stream);
+
+            mediaRecorder.addEventListener("dataavailable", event => {
+                audioChunks.push(event.data);
+            });
+
+            mediaRecorder.addEventListener("stop", async () => {
+                const audioBlob = new Blob(audioChunks, { type: 'audio/wav' });
+                audioChunks = [];
+
+                const formData = new FormData();
+                formData.append('file', audioBlob, 'audio.wav');
+
+                await fetch('/analyze_audio', {
+                    method: 'POST',
+                    body: formData
+                });
+
+                mediaRecorder.start();
+            });
+
+            mediaRecorder.start();
+            setInterval(() => {
+                if (mediaRecorder.state === "recording") {
+                    mediaRecorder.stop();
+                }
+            }, 2000);
+        }
+
+        async function updateEmotion() {
+            setInterval(async () => {
+                const res = await fetch('/emotion_live');
+                const data = await res.json();
+                emotionText.textContent = `Emotion: ${data.emotion}`;
+            }, 1000);
+        }
+
+        startCamera();
+        updateEmotion();
+    </script>
 </body>
 </html>
