@@ -2,6 +2,7 @@ from fastapi import FastAPI, Request
 from fastapi.responses import HTMLResponse, StreamingResponse, JSONResponse
 from fastapi.templating import Jinja2Templates
 from fastapi.staticfiles import StaticFiles
+from fastapi import UploadFile, File
 import threading
 import cv2
 import numpy as np
@@ -28,8 +29,6 @@ final_emotion = "Not Angry"
 audio_rage_counter = 0
 face_rage_counter = 0
 
-# Webcam capture
-camera = cv2.VideoCapture(0)
 lock = threading.Lock()
 
 # Audio processing
@@ -59,45 +58,12 @@ def audio_emotion_loop():
 # Start audio thread
 threading.Thread(target=audio_emotion_loop, daemon=True).start()
 
-# Video frame generation
-def generate_frames():
-    global face_emotion
-    while True:
-        with lock:
-            success, frame = camera.read()
-        if not success:
-            break
-
-        try:
-            result = DeepFace.analyze(frame, actions=['emotion'], enforce_detection=False)
-            emotions = result[0]['emotion']
-            angry_score = emotions.get('angry', 0)
-
-            if angry_score > 70:
-                face_emotion = "Very Angry"
-            elif angry_score > 40:
-                face_emotion = "Angry"
-            elif angry_score > 10:
-                face_emotion = "Slightly Angry"
-            else:
-                face_emotion = "Not Angry"
-        except Exception as e:
-            face_emotion = "Unknown"
-
-        ret, buffer = cv2.imencode('.jpg', frame)
-        frame = buffer.tobytes()
-
-        yield (b'--frame\r\n'
-               b'Content-Type: image/jpeg\r\n\r\n' + frame + b'\r\n')
 
 # Routes
 @app.get("/", response_class=HTMLResponse)
 async def read_root(request: Request):
     return templates.TemplateResponse("index.html", {"request": request})
 
-@app.get("/video_feed")
-async def video_feed():
-    return StreamingResponse(generate_frames(), media_type="multipart/x-mixed-replace; boundary=frame")
 
 @app.get("/emotion_live")
 async def emotion_live():
@@ -115,6 +81,32 @@ async def emotion_live():
         "emotion": final_emotion,
         "is_angry": angry_detected
     })
+
+@app.post("/analyze_frame")
+async def analyze_frame(file: UploadFile = File(...)):
+    contents = await file.read()
+    nparr = np.frombuffer(contents, np.uint8)
+    frame = cv2.imdecode(nparr, cv2.IMREAD_COLOR)
+
+    try:
+        result = DeepFace.analyze(frame, actions=['emotion'], enforce_detection=False)
+        emotions = result[0]['emotion']
+        angry_score = emotions.get('angry', 0)
+
+        if angry_score > 70:
+            detected_emotion = "Very Angry"
+        elif angry_score > 40:
+            detected_emotion = "Angry"
+        elif angry_score > 10:
+            detected_emotion = "Slightly Angry"
+        else:
+            detected_emotion = "Not Angry"
+
+    except Exception as e:
+        print("Face detection error:", e)
+        detected_emotion = "Unknown"
+
+    return JSONResponse(content={"emotion": detected_emotion})
 
 import os
 import uvicorn
