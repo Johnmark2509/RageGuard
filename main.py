@@ -33,9 +33,9 @@ def predict_audio_emotion(audio):
     return audio_le.inverse_transform([pred])[0]
 
 # Routes
-@app.get("/", response_class=HTMLResponse)
-async def read_root(request: Request):
-    return templates.TemplateResponse("index.html", {"request": request})
+@app.get("/", response_class=JSONResponse)
+async def read_root():
+    return {"message": "Hello RageGuard"}
 
 @app.post("/analyze_frame")
 async def analyze_frame(file: UploadFile = File(...)):
