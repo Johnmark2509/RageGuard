@@ -96,3 +96,9 @@ async def emotion_live():
         "emotion": final_emotion,
         "is_angry": angry_detected
     })
+
+import os
+
+if __name__ == "__main__":
+    import uvicorn
+    uvicorn.run("main:app", host="0.0.0.0", port=int(os.getenv("PORT", 8000)))
