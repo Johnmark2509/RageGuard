@@ -74,7 +74,7 @@
                 const videoElement = document.getElementById('videoFeed');
                 videoStream = await navigator.mediaDevices.getUserMedia({ video: true, audio: true });
 
-                // 🔇 Mute the audio tracks so user doesn't hear themselves
+                // 🔇 Mute audio tracks so user doesn't hear themselves
                 videoStream.getAudioTracks().forEach(track => {
                     track.enabled = false;
                 });
@@ -89,47 +89,29 @@
         }
 
         function startFrameCapture(videoElement) {
-    canvas = document.createElement('canvas');
-    ctx = canvas.getContext('2d');
-    frameCaptureInterval = setInterval(async () => {
-        if (videoElement.readyState >= 2) {
-            canvas.width = videoElement.videoWidth;
-            canvas.height = videoElement.videoHeight;
+            canvas = document.createElement('canvas');
+            ctx = canvas.getContext('2d');
+            frameCaptureInterval = setInterval(async () => {
+                if (videoElement.readyState >= 2) {
+                    canvas.width = videoElement.videoWidth;
+                    canvas.height = videoElement.videoHeight;
 
-            // Apply light denoising (blur) before drawing
-            ctx.filter = 'blur(1px)';
-            ctx.drawImage(videoElement, 0, 0, canvas.width, canvas.height);
-            ctx.filter = 'none'; // Reset filter immediately after drawing
+                    ctx.drawImage(videoElement, 0, 0, canvas.width, canvas.height);
 
-            // Apply gamma correction to brighten the image
-            const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
-            const data = imageData.data;
-            const gamma = 1.2; // Light gamma correction
-            const invGamma = 1 / gamma;
-
-            for (let i = 0; i < data.length; i += 4) {
-                data[i] = 255 * Math.pow(data[i] / 255, invGamma);     // Red
-                data[i + 1] = 255 * Math.pow(data[i + 1] / 255, invGamma); // Green
-                data[i + 2] = 255 * Math.pow(data[i + 2] / 255, invGamma); // Blue
-                // Alpha (data[i+3]) stays the same
-            }
-            ctx.putImageData(imageData, 0, 0);
-
-            // Upload the processed frame
-            const blob = await new Promise(resolve => canvas.toBlob(resolve, 'image/jpeg'));
-            const formData = new FormData();
-            formData.append('file', blob, 'frame.jpg');
-            try {
-                await fetch('/analyze_frame', {
-                    method: 'POST',
-                    body: formData
-                });
-            } catch (error) {
-                console.error("Frame upload error:", error);
-            }
+                    const blob = await new Promise(resolve => canvas.toBlob(resolve, 'image/jpeg'));
+                    const formData = new FormData();
+                    formData.append('file', blob, 'frame.jpg');
+                    try {
+                        await fetch('/analyze_frame', {
+                            method: 'POST',
+                            body: formData
+                        });
+                    } catch (error) {
+                        console.error("Frame upload error:", error);
+                    }
+                }
+            }, 1000); // Capture every 1 second
         }
-    }, 1000); // Capture every 1 second
-}
 
         function startEmotionPolling() {
             pollingInterval = setInterval(async () => {
@@ -160,7 +142,6 @@
                 videoStream = null;
             }
 
-            // Fade out calming audio if playing
             const audio = document.getElementById("calmingAudio");
             if (!audio.paused) {
                 let fadeOut = setInterval(() => {
@@ -180,26 +161,37 @@
         }
 
         function showTips() {
-            document.getElementById("tipsModal").classList.remove('hidden');
+            const modal = document.getElementById("tipsModal");
+            modal.classList.remove('hidden');
+            modal.style.display = "block"; // 🔥 Force it visible
         }
 
         function closeModal() {
-            document.getElementById("tipsModal").classList.add('hidden');
-            document.getElementById("calmTechniques").classList.add('hidden');
+            const modal = document.getElementById("tipsModal");
+            const calmModal = document.getElementById("calmTechniques");
+
+            modal.classList.add('hidden');
+            modal.style.display = "none";
+
+            calmModal.classList.add('hidden');
+            calmModal.style.display = "none";
         }
 
         window.onclick = function (event) {
-    	const modal = document.getElementById("tipsModal");
-    	const calmModal = document.getElementById("calmTechniques");
+            const modal = document.getElementById("tipsModal");
+            const calmModal = document.getElementById("calmTechniques");
 
-    	    if (event.target === modal) {
-        	modal.classList.add('hidden');
-    	    }
-    	    if (event.target === calmModal) {
-        	calmModal.classList.add('hidden');
+            if (event.target === modal) {
+                modal.classList.add('hidden');
+                modal.style.display = "none";
             }
-	}
+            if (event.target === calmModal) {
+                calmModal.classList.add('hidden');
+                calmModal.style.display = "none";
+            }
+        }
     </script>
 
 </body>
 </html>
+
