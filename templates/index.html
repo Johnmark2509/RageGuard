@@ -16,24 +16,23 @@
     <audio id="calmingAudio" src="/static/calming.mp3" preload="auto" loop></audio>
 
     <div id="welcome-slide" class="slide">
-        <img src="/static/rage-guard-logo.jpg" alt="Rage Guard" class="logo">
+        <img src="/static/rage-guard-logo.jpg" alt="Rage Guard Logo" class="logo">
         <h2 class="subtitle">Check Your Road Rage Level</h2>
-        <img src="/static/camera-car-icon.png" alt="Car with camera icon" class="icon">
+        <img src="/static/camera-car-icon.png" alt="Camera Icon" class="icon">
         <p class="description">Take a quick selfie to assess your emotional state before driving.</p>
         <button onclick="openCamera()" class="primary-btn">📸 Capture My Mood</button>
-        <button onclick="showTips()" class="primary-btn">📚 Read Calming Tips</button><br>
+        <button onclick="showTips()" class="primary-btn">📚 Read Calming Tips</button>
     </div>
 
     <div id="result-slide" class="slide hidden">
-        <img src="/static/rage-guard-logo.jpg" alt="Rage Guard" class="logo">
+        <img src="/static/rage-guard-logo.jpg" alt="Rage Guard Logo" class="logo">
         <h2 class="subtitle">Rage Level Detected</h2>
-
-        <!-- Instead of img tag, we use video tag for live webcam -->
-        <video id="videoFeed" width="400" height="300" autoplay muted class="photo"></video>
-
+        <div id="videoContainer">
+            <video id="videoFeed" autoplay muted playsinline class="photo" style="width: 400px; height: 300px;"></video>
+        </div>
         <p id="liveEmotion" class="alert">Detecting...</p>
-        <p id="rageAlert" class="description hidden">Road rage detected!<br>Let's help you cool off before you drive.</p>
-        <button onclick="showTips()" class="primary-btn">📚 Read Calming Tips</button><br>
+        <p id="rageAlert" class="description hidden">Road rage detected! Let's help you cool off before you drive.</p>
+        <button onclick="showTips()" class="primary-btn">📚 Read Calming Tips</button>
         <button onclick="goBackHome()" class="secondary-btn">🏠 Go Back to Home Screen</button>
     </div>
 
@@ -42,8 +41,8 @@
             <span class="close" onclick="closeModal()">&times;</span>
             <h3>Read Calming Tips</h3>
             <ul>
-                <li><a href="https://www.drivesafecolorado.com/blog/drivers-street-smarts/how-to-handle-road-rage-and-manage-your-emotions" target="_blank">How to Control Road Rage and Manage Your Emotions</a></li>
-                <li><a href="https://www.verywellmind.com/how-to-manage-and-prevent-road-rage-3145193" target="_blank">How to Manage Feelings of Road Rage</a></li>
+                <li><a href="https://www.drivesafecolorado.com/blog/drivers-street-smarts/how-to-handle-road-rage-and-manage-your-emotions" target="_blank">How to Control Road Rage</a></li>
+                <li><a href="https://www.verywellmind.com/how-to-manage-and-prevent-road-rage-3145193" target="_blank">How to Manage Road Rage</a></li>
             </ul>
         </div>
     </div>
@@ -52,165 +51,129 @@
         <div class="modal-content">
             <h3>Calming Techniques</h3>
             <ul>
-                <li>🧘 Deep Breathing: Inhale slowly, exhale gently for 5 minutes.</li>
-                <li>🧘‍♂️ Mindfulness: Focus on your breathing and stay present.</li>
-                <li>🏃 Light Activity: Stretch, or walk around calmly.</li>
-                <li>🧠 Positive Thinking: Remind yourself "This anger will pass."</li>
+                <li>🧘 Deep Breathing: Inhale slowly, exhale gently.</li>
+                <li>🧘‍♂️ Mindfulness: Focus on breathing and staying present.</li>
+                <li>🏃 Light Activity: Stretch or walk calmly.</li>
+                <li>🧠 Positive Thinking: "This anger will pass."</li>
             </ul>
         </div>
     </div>
 
     <script>
-        let video = null;
+        let pollingInterval = null;
+        let videoStream = null;
         let canvas = null;
         let ctx = null;
-        let captureInterval = null;
-        let pollingInterval = null;
-        let rageCounter = 0;
-        let rageAlertShown = false;
-        let calmingTimer = null;
-        let mediaRecorder = null;
-        let audioChunks = [];
+        let frameCaptureInterval = null;
 
-        function openCamera() {
+        async function openCamera() {
             document.getElementById('welcome-slide').classList.add('hidden');
             document.getElementById('result-slide').classList.remove('hidden');
-            startCamera();
-            startEmotionPolling();
-        }
 
-        async function startCamera() {
-            video = document.getElementById('videoFeed');
-            const stream = await navigator.mediaDevices.getUserMedia({ video: true, audio: true });
-            video.srcObject = stream;
+            try {
+                const videoElement = document.getElementById('videoFeed');
+                videoStream = await navigator.mediaDevices.getUserMedia({ video: true, audio: true });
 
-            canvas = document.createElement('canvas');
-            ctx = canvas.getContext('2d');
-
-            captureInterval = setInterval(captureFrame, 2000);
-            startMicLoop();
-        }
-
-        async function captureFrame() {
-            if (!video.videoWidth) return;
-            canvas.width = video.videoWidth;
-            canvas.height = video.videoHeight;
-            ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
-
-            const blob = await new Promise(resolve => canvas.toBlob(resolve, 'image/jpeg'));
-            const formData = new FormData();
-            formData.append('file', blob, 'frame.jpg');
-
-            await fetch('/analyze_frame', {
-                method: 'POST',
-                body: formData
-            });
-        }
-
-        async function startMicLoop() {
-            const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-            mediaRecorder = new MediaRecorder(stream);
-
-            mediaRecorder.addEventListener("dataavailable", event => {
-                audioChunks.push(event.data);
-            });
-
-            mediaRecorder.addEventListener("stop", async () => {
-                const audioBlob = new Blob(audioChunks, { type: 'audio/wav' });
-                audioChunks = [];
-
-                const formData = new FormData();
-                formData.append('file', audioBlob, 'audio.wav');
-
-                await fetch('/analyze_audio', {
-                    method: 'POST',
-                    body: formData
+                // 🔇 Mute the audio tracks so user doesn't hear themselves
+                videoStream.getAudioTracks().forEach(track => {
+                    track.enabled = false;
                 });
 
-                mediaRecorder.start();
-            });
+                videoElement.srcObject = videoStream;
+                await videoElement.play();
+                startFrameCapture(videoElement);
+                startEmotionPolling();
+            } catch (err) {
+                console.error("Failed to access camera:", err);
+            }
+        }
 
-            mediaRecorder.start();
-
-            setInterval(() => {
-                if (mediaRecorder.state === "recording") {
-                    mediaRecorder.stop();
+        function startFrameCapture(videoElement) {
+            canvas = document.createElement('canvas');
+            ctx = canvas.getContext('2d');
+            frameCaptureInterval = setInterval(async () => {
+                if (videoElement.readyState >= 2) {
+                    canvas.width = videoElement.videoWidth;
+                    canvas.height = videoElement.videoHeight;
+                    ctx.drawImage(videoElement, 0, 0, canvas.width, canvas.height);
+                    const blob = await new Promise(resolve => canvas.toBlob(resolve, 'image/jpeg'));
+                    const formData = new FormData();
+                    formData.append('file', blob, 'frame.jpg');
+                    try {
+                        await fetch('/analyze_frame', {
+                            method: 'POST',
+                            body: formData
+                        });
+                    } catch (error) {
+                        console.error("Frame upload error:", error);
+                    }
                 }
             }, 2000);
         }
 
         function startEmotionPolling() {
-            if (pollingInterval) clearInterval(pollingInterval);
             pollingInterval = setInterval(async () => {
                 try {
-                    const response = await fetch("/emotion_live");
+                    const response = await fetch('/emotion_live');
                     const data = await response.json();
-                    const emotionText = data.emotion;
-                    const isAngry = data.is_angry;
+                    document.getElementById("liveEmotion").textContent = "Detected: " + data.emotion;
 
-                    document.getElementById("liveEmotion").textContent = "Detected: " + emotionText;
-
-                    if (isAngry) {
-                        rageCounter++;
-                        if (rageCounter >= 5 && !rageAlertShown) {
-                            document.getElementById("rageAlert").classList.remove('hidden');
-                            rageAlertShown = true;
-                            const audio = document.getElementById("calmingAudio");
-                            audio.volume = 0.0;
+                    if (data.is_angry) {
+                        document.getElementById("rageAlert").classList.remove('hidden');
+                        const audio = document.getElementById("calmingAudio");
+                        if (audio.paused) {
                             audio.play();
-                            let fadeIn = setInterval(() => {
-                                if (audio.volume < 0.9) {
-                                    audio.volume += 0.1;
-                                } else {
-                                    clearInterval(fadeIn);
-                                    audio.volume = 1.0;
-                                }
-                            }, 200);
-                            document.getElementById("calmTechniques").classList.remove('hidden');
-                            if (calmingTimer) clearTimeout(calmingTimer);
-                            calmingTimer = setTimeout(showHotlineModal, 30 * 60 * 1000);
                         }
-                    } else {
-                        rageCounter = 0;
-                        rageAlertShown = false;
-                        clearTimeout(calmingTimer);
+                        document.getElementById("calmTechniques").classList.remove('hidden');
                     }
                 } catch (error) {
-                    console.error("Failed to fetch emotion:", error);
+                    console.error("Polling error:", error);
                 }
             }, 1000);
         }
 
-        function stopEmotionPolling() {
+        function goBackHome() {
             if (pollingInterval) clearInterval(pollingInterval);
-            pollingInterval = null;
-        }
+            if (frameCaptureInterval) clearInterval(frameCaptureInterval);
+            if (videoStream) {
+                videoStream.getTracks().forEach(track => track.stop());
+                videoStream = null;
+            }
 
-        function showHotlineModal() {
-            alert("Your tension hasn't reduced after 30 minutes. Please consider contacting a mental health professional:\n\n📞 NCMH: 1553 or 0917-899-8727\n📞 HOPELINE: (02) 8804-4673");
+            // Fade out calming audio if playing
+            const audio = document.getElementById("calmingAudio");
+            if (!audio.paused) {
+                let fadeOut = setInterval(() => {
+                    if (audio.volume > 0.1) {
+                        audio.volume -= 0.1;
+                    } else {
+                        clearInterval(fadeOut);
+                        audio.pause();
+                        audio.currentTime = 0;
+                        audio.volume = 1.0;
+                        window.location.href = "/";
+                    }
+                }, 200);
+            } else {
+                window.location.href = "/";
+            }
         }
 
         function showTips() {
-            document.getElementById("tipsModal").style.display = "block";
+            document.getElementById("tipsModal").classList.remove('hidden');
         }
 
         function closeModal() {
-            document.getElementById("tipsModal").style.display = "none";
-            document.getElementById("calmTechniques").style.display = "none";
+            document.getElementById("tipsModal").classList.add('hidden');
+            document.getElementById("calmTechniques").classList.add('hidden');
         }
 
         window.onclick = function (event) {
-            const modal = document.getElementById("tipsModal");
-            const calmModal = document.getElementById("calmTechniques");
-            if (event.target === modal) {
-                modal.style.display = "none";
-            }
-            if (event.target === calmModal) {
-                calmModal.style.display = "none";
+            if (event.target.classList.contains('modal')) {
+                event.target.classList.add('hidden');
             }
         }
     </script>
+
 </body>
-
 </html>
-
