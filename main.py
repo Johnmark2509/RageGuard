@@ -49,11 +49,11 @@ async def analyze_frame(file: UploadFile = File(...)):
         emotions = result[0]['emotion']
         angry_score = emotions.get('angry', 0)
 
-        if angry_score > 60:
+        if angry_score > 50:
             face_emotion = "Very Angry"
-        elif angry_score > 30:
+        elif angry_score > 25:
             face_emotion = "Angry"
-        elif angry_score > 7:
+        elif angry_score > 5:
             face_emotion = "Slightly Angry"
         else:
             face_emotion = "Not Angry"
