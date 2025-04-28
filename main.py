@@ -45,7 +45,7 @@ async def analyze_frame(file: UploadFile = File(...)):
     frame = cv2.imdecode(nparr, cv2.IMREAD_COLOR)
 
     try:
-        result = DeepFace.analyze(frame, actions=['emotion'], detector_backend='retinaface', enforce_detection=True)
+        result = DeepFace.analyze(frame, actions=['emotion'], enforce_detection=False)
         emotions = result[0]['emotion']
         angry_score = emotions.get('angry', 0)
 

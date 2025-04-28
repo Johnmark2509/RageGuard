@@ -104,7 +104,11 @@
                 if (videoElement.readyState >= 2) {
                     canvas.width = videoElement.videoWidth;
                     canvas.height = videoElement.videoHeight;
+
+		    // Apply light denoising (blur)
+            	    ctx.filter = 'blur(1px)'; 
                     ctx.drawImage(videoElement, 0, 0, canvas.width, canvas.height);
+		    ctx.filter = 'none'; // Reset filter immediately after
 
                     const blob = await new Promise(resolve => canvas.toBlob(resolve, 'image/jpeg'));
                     const formData = new FormData();
