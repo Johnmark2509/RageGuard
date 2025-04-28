@@ -61,10 +61,12 @@
 
     <script>
         let pollingInterval = null;
+        let frameCaptureInterval = null;
         let videoStream = null;
         let canvas = null;
         let ctx = null;
-        let frameCaptureInterval = null;
+        let rageCounter = 0;
+        let rageAlertShown = false;
 
         async function openCamera() {
             document.getElementById('welcome-slide').classList.add('hidden');
@@ -74,13 +76,20 @@
                 const videoElement = document.getElementById('videoFeed');
                 videoStream = await navigator.mediaDevices.getUserMedia({ video: true, audio: true });
 
-                // 🔇 Mute audio tracks so user doesn't hear themselves
+                // 🔇 Mute microphone input
                 videoStream.getAudioTracks().forEach(track => {
                     track.enabled = false;
                 });
 
                 videoElement.srcObject = videoStream;
                 await videoElement.play();
+
+                // 🔥 Fix for mobile audio autoplay: pre-trigger audio
+                const audio = document.getElementById("calmingAudio");
+                await audio.play();
+                audio.pause();
+                audio.currentTime = 0;
+
                 startFrameCapture(videoElement);
                 startEmotionPolling();
             } catch (err) {
@@ -95,7 +104,6 @@
                 if (videoElement.readyState >= 2) {
                     canvas.width = videoElement.videoWidth;
                     canvas.height = videoElement.videoHeight;
-
                     ctx.drawImage(videoElement, 0, 0, canvas.width, canvas.height);
 
                     const blob = await new Promise(resolve => canvas.toBlob(resolve, 'image/jpeg'));
@@ -110,7 +118,7 @@
                         console.error("Frame upload error:", error);
                     }
                 }
-            }, 1000); // Capture every 1 second
+            }, 1000);
         }
 
         function startEmotionPolling() {
@@ -121,12 +129,19 @@
                     document.getElementById("liveEmotion").textContent = "Detected: " + data.emotion;
 
                     if (data.is_angry) {
-                        document.getElementById("rageAlert").classList.remove('hidden');
-                        const audio = document.getElementById("calmingAudio");
-                        if (audio.paused) {
-                            audio.play();
+                        rageCounter++;
+                        if (rageCounter >= 5 && !rageAlertShown) {
+                            document.getElementById("rageAlert").classList.remove('hidden');
+                            const audio = document.getElementById("calmingAudio");
+                            if (audio.paused) {
+                                audio.play();
+                            }
+                            document.getElementById("calmTechniques").classList.remove('hidden');
+                            rageAlertShown = true;
                         }
-                        document.getElementById("calmTechniques").classList.remove('hidden');
+                    } else {
+                        rageCounter = 0;
+                        rageAlertShown = false;
                     }
                 } catch (error) {
                     console.error("Polling error:", error);
@@ -163,16 +178,14 @@
         function showTips() {
             const modal = document.getElementById("tipsModal");
             modal.classList.remove('hidden');
-            modal.style.display = "block"; // 🔥 Force it visible
+            modal.style.display = "block";
         }
 
         function closeModal() {
             const modal = document.getElementById("tipsModal");
             const calmModal = document.getElementById("calmTechniques");
-
             modal.classList.add('hidden');
             modal.style.display = "none";
-
             calmModal.classList.add('hidden');
             calmModal.style.display = "none";
         }
@@ -194,4 +207,3 @@
 
 </body>
 </html>
-
