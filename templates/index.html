@@ -1,14 +1,62 @@
 <!DOCTYPE html>
 <html lang="en">
+
 <head>
     <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Rage Guard</title>
+    <link rel="stylesheet" href="/static/styles.css">
+    <link rel="apple-touch-icon" sizes="180x180" href="/static/apple-touch-icon.png">
+    <link rel="icon" type="image/png" sizes="32x32" href="/static/favicon-32x32.png">
+    <link rel="icon" type="image/png" sizes="16x16" href="/static/favicon-16x16.png">
+    <link rel="manifest" href="/static/site.webmanifest">
 </head>
-<body>
-    <h1>Rage Guard</h1>
 
-    <video id="video" width="640" height="480" autoplay muted></video>
-    <p id="emotion">Detecting...</p>
+<body>
+    <audio id="calmingAudio" src="/static/calming.mp3" preload="auto" loop></audio>
+
+    <div id="welcome-slide" class="slide">
+        <img src="/static/rage-guard-logo.jpg" alt="Rate Guard" class="logo">
+        <h2 class="subtitle">Check Your Road Rage Level</h2>
+        <img src="/static/camera-car-icon.png" alt="Car with camera icon" class="icon">
+        <p class="description">Take a quick selfie to assess your emotional state before driving.</p>
+        <button onclick="openCamera()" class="primary-btn">📸 Capture My Mood</button>
+        <button onclick="showTips()" class="primary-btn">📚 Read Calming Tips</button><br>
+    </div>
+
+    <div id="result-slide" class="slide hidden">
+        <img src="/static/rage-guard-logo.jpg" alt="Rate Guard" class="logo">
+        <h2 class="subtitle">Rage Level Detected</h2>
+        <!-- Now a real <video> tag -->
+        <video id="videoFeed" width="400" height="300" autoplay muted playsinline class="photo"></video>
+        <p id="liveEmotion" class="alert">Detecting...</p>
+        <p id="rageAlert" class="description hidden">Road rage detected!<br>Let's help you cool off before you drive.</p>
+        <button onclick="showTips()" class="primary-btn">📚 Read Calming Tips</button><br>
+        <button onclick="goBackHome()" class="secondary-btn">🏠 Go Back to Home Screen</button>
+    </div>
+
+    <div id="tipsModal" class="modal hidden">
+        <div class="modal-content">
+            <span class="close" onclick="closeModal()">&times;</span>
+            <h3>Read Calming Tips</h3>
+            <ul>
+                <li><a href="https://www.drivesafecolorado.com/blog/drivers-street-smarts/how-to-handle-road-rage-and-manage-your-emotions" target="_blank">How to Control Road Rage and Manage Your Emotions</a></li>
+                <li><a href="https://www.verywellmind.com/how-to-manage-and-prevent-road-rage-3145193" target="_blank">How to Manage Feelings of Road Rage</a></li>
+            </ul>
+        </div>
+    </div>
+
+    <div id="calmTechniques" class="modal hidden">
+        <div class="modal-content">
+            <h3>Calming Techniques</h3>
+            <ul>
+                <li>🧘 Deep Breathing: Inhale slowly, exhale gently for 5 minutes.</li>
+                <li>🧘‍♂️ Mindfulness: Focus on your breathing and stay present.</li>
+                <li>🏃 Light Activity: Stretch, or walk around calmly.</li>
+                <li>🧠 Positive Thinking: Remind yourself "This anger will pass."</li>
+            </ul>
+        </div>
+    </div>
 
     <script>
     let pollingInterval = null;
@@ -24,15 +72,7 @@
         document.getElementById('welcome-slide').classList.add('hidden');
         document.getElementById('result-slide').classList.remove('hidden');
 
-        // Initialize video streaming
-        videoElement = document.createElement('video');
-        videoElement.setAttribute('autoplay', '');
-        videoElement.setAttribute('muted', '');
-        videoElement.setAttribute('playsinline', '');
-        videoElement.style.width = "400px";
-        videoElement.style.height = "300px";
-
-        document.getElementById('videoFeed').replaceWith(videoElement);
+        videoElement = document.getElementById('videoFeed');
 
         try {
             videoStream = await navigator.mediaDevices.getUserMedia({ video: true, audio: false });
@@ -62,7 +102,7 @@
                 method: 'POST',
                 body: formData
             });
-        }, 2000);
+        }, 1000); // <-- Faster now: every 1 second
     }
 
     function goBackHome() {
@@ -144,6 +184,7 @@
             calmModal.style.display = "none";
         }
     }
-</script>
+    </script>
 </body>
+
 </html>
