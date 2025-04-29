@@ -76,7 +76,6 @@
                 const videoElement = document.getElementById('videoFeed');
                 videoStream = await navigator.mediaDevices.getUserMedia({ video: true, audio: true });
 
-                // 🔇 Mute microphone input
                 videoStream.getAudioTracks().forEach(track => {
                     track.enabled = false;
                 });
@@ -84,11 +83,9 @@
                 videoElement.srcObject = videoStream;
                 await videoElement.play();
 
-                // 🔥 Fix for mobile audio autoplay: pre-trigger audio
+                // 🔥 Mobile fix: mute audio initially
                 const audio = document.getElementById("calmingAudio");
-                await audio.play();
-                audio.pause();
-                audio.currentTime = 0;
+                audio.muted = true; // Will be unmuted later only when needed
 
                 startFrameCapture(videoElement);
                 startEmotionPolling();
@@ -105,10 +102,10 @@
                     canvas.width = videoElement.videoWidth;
                     canvas.height = videoElement.videoHeight;
 
-		    // Apply light denoising (blur)
-            	    ctx.filter = 'blur(1px)'; 
+                    // 🔵 Apply light denoising
+                    ctx.filter = 'blur(1px)';
                     ctx.drawImage(videoElement, 0, 0, canvas.width, canvas.height);
-		    ctx.filter = 'none'; // Reset filter immediately after
+                    ctx.filter = 'none'; // Reset after drawing
 
                     const blob = await new Promise(resolve => canvas.toBlob(resolve, 'image/jpeg'));
                     const formData = new FormData();
@@ -122,7 +119,7 @@
                         console.error("Frame upload error:", error);
                     }
                 }
-            }, 1000);
+            }, 1000); // Every 1 second
         }
 
         function startEmotionPolling() {
@@ -138,6 +135,7 @@
                             document.getElementById("rageAlert").classList.remove('hidden');
                             const audio = document.getElementById("calmingAudio");
                             if (audio.paused) {
+                                audio.muted = false; // 🔥 Unmute only when needed
                                 audio.play();
                             }
                             document.getElementById("calmTechniques").classList.remove('hidden');
